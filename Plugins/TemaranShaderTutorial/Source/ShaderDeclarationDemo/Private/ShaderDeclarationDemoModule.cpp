@@ -7,6 +7,9 @@
 #include "ComputeShaderExample.h"
 #include "PixelShaderExample.h"
 
+#include "ComputeShaderRenderGraph.h"
+#include "PixelShaderRenderGraph.h"
+
 #include "Misc/Paths.h"
 #include "Misc/FileHelper.h"
 #include "RHI.h"
@@ -16,6 +19,8 @@
 #include "RenderTargetPool.h"
 #include "Runtime/Core/Public/Modules/ModuleManager.h"
 #include "Interfaces/IPluginManager.h"
+#include "HAL/IConsoleManager.h"
+
 
 IMPLEMENT_MODULE(FShaderDeclarationDemoModule, ShaderDeclarationDemo)
 
@@ -23,6 +28,14 @@ IMPLEMENT_MODULE(FShaderDeclarationDemoModule, ShaderDeclarationDemo)
 DECLARE_GPU_STAT_NAMED(ShaderPlugin_Render, TEXT("ShaderPlugin: Root Render"));
 DECLARE_GPU_STAT_NAMED(ShaderPlugin_Compute, TEXT("ShaderPlugin: Render Compute Shader"));
 DECLARE_GPU_STAT_NAMED(ShaderPlugin_Pixel, TEXT("ShaderPlugin: Render Pixel Shader"));
+
+
+static int32 GUseRenderGraph = 0;
+static FAutoConsoleVariableRef CVarUseRenderGraph(
+	TEXT("Demo.UseRenderGraph"),
+	GUseRenderGraph,
+	TEXT("Whether to use render graph for the demo")
+);
 
 void FShaderDeclarationDemoModule::StartupModule()
 {
@@ -110,13 +123,33 @@ void FShaderDeclarationDemoModule::Draw_RenderThread(const FShaderUsageExamplePa
 	QUICK_SCOPE_CYCLE_COUNTER(STAT_ShaderPlugin_Render); // Used to gather CPU profiling data for the UE4 session frontend
 	SCOPED_DRAW_EVENT(RHICmdList, ShaderPlugin_Render); // Used to profile GPU activity and add metadata to be consumed by for example RenderDoc
 
-	if (!ComputeShaderOutput.IsValid())
+	if (GUseRenderGraph)
 	{
-		FPooledRenderTargetDesc ComputeShaderOutputDesc(FPooledRenderTargetDesc::Create2DDesc(DrawParameters.GetRenderTargetSize(), PF_R32_UINT, FClearValueBinding::None, TexCreate_None, TexCreate_ShaderResource | TexCreate_UAV, false));
-		ComputeShaderOutputDesc.DebugName = TEXT("ShaderPlugin_ComputeShaderOutput");
-		GRenderTargetPool.FindFreeElement(RHICmdList, ComputeShaderOutputDesc, ComputeShaderOutput, TEXT("ShaderPlugin_ComputeShaderOutput"));
-	}
+		FRDGBuilder GraphBuilder(RHICmdList);
 
-	FComputeShaderExample::RunComputeShader_RenderThread(RHICmdList, DrawParameters, ComputeShaderOutput->GetRenderTargetItem().UAV);
-	FPixelShaderExample::DrawToRenderTarget_RenderThread(RHICmdList, DrawParameters, ComputeShaderOutput->GetRenderTargetItem().TargetableTexture);
+		FRDGTextureDesc Desc = FRDGTextureDesc::Create2DDesc(
+			DrawParameters.GetRenderTargetSize(),
+			PF_R32_UINT,
+			FClearValueBinding::None,
+			TexCreate_None,
+			TexCreate_ShaderResource | TexCreate_UAV,
+			false);
+
+		FRDGTextureRef CSOutput = GraphBuilder.CreateTexture(Desc, TEXT("CSOutput"));
+		FComputeShaderRenderGraph::RunComputeShader_RenderGraph(GraphBuilder, DrawParameters, CSOutput);
+		FPixelShaderRenderGraph::DrawToRenderTarget_RenderGraph(GraphBuilder, DrawParameters, CSOutput);
+		GraphBuilder.Execute();		
+	}	
+	else
+	{
+		if (!ComputeShaderOutput.IsValid())
+		{
+			FPooledRenderTargetDesc ComputeShaderOutputDesc(FPooledRenderTargetDesc::Create2DDesc(DrawParameters.GetRenderTargetSize(), PF_R32_UINT, FClearValueBinding::None, TexCreate_None, TexCreate_ShaderResource | TexCreate_UAV, false));
+			ComputeShaderOutputDesc.DebugName = TEXT("ShaderPlugin_ComputeShaderOutput");
+			GRenderTargetPool.FindFreeElement(RHICmdList, ComputeShaderOutputDesc, ComputeShaderOutput, TEXT("ShaderPlugin_ComputeShaderOutput"));
+		}
+
+		FComputeShaderExample::RunComputeShader_RenderThread(RHICmdList, DrawParameters, ComputeShaderOutput->GetRenderTargetItem().UAV);
+		FPixelShaderExample::DrawToRenderTarget_RenderThread(RHICmdList, DrawParameters, ComputeShaderOutput->GetRenderTargetItem().TargetableTexture);
+	}	
 }
