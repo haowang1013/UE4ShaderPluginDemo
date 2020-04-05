@@ -66,7 +66,7 @@ void FPixelShaderRenderGraph::DrawToRenderTarget_RenderGraph(FRDGBuilder& GraphB
 	FPixelShaderUtils::AddFullscreenPass(
 		GraphBuilder,
 		ShaderMap,
-		RDG_EVENT_NAME("Pixel Shader Example"),
+		RDG_EVENT_NAME("Pixel Shader (Render Graph)"),
 		*PixelShader,
 		PassParameters,
 		FIntRect(0, 0, DrawParameters.GetRenderTargetSize().X, DrawParameters.GetRenderTargetSize().Y));

@@ -48,7 +48,7 @@ void FComputeShaderRenderGraph::RunComputeShader_RenderGraph(FRDGBuilder& GraphB
 
 	FComputeShaderUtils::AddPass(
 		GraphBuilder,
-		RDG_EVENT_NAME("Computer Shader Example"),
+		RDG_EVENT_NAME("Computer Shader (Render Graph)"),
 		*ComputeShader,
 		PassParameters,
 		FComputeShaderUtils::GetGroupCount(DrawParameters.GetRenderTargetSize(), NUM_THREADS_PER_GROUP_DIMENSION)
