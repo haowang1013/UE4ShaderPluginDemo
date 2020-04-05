@@ -102,4 +102,6 @@ private:
 
 	void PostResolveSceneColor_RenderThread(FRHICommandListImmediate& RHICmdList, class FSceneRenderTargets& SceneContext);
 	void Draw_RenderThread(const FShaderUsageExampleParameters& DrawParameters);
+
+	TRefCountPtr<IPooledRenderTarget> PixelShaderOutput;
 };

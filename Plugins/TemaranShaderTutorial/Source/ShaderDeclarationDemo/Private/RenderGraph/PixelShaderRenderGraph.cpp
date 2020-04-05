@@ -4,6 +4,7 @@
 #include "GlobalShader.h"
 #include "ShaderDeclarationDemoModule.h"
 #include "PixelShaderUtils.h"
+#include "RenderTargetPool.h"
 
 
 class FRenderGraphPS : public FGlobalShader
@@ -30,7 +31,7 @@ public:
 
 IMPLEMENT_GLOBAL_SHADER(FRenderGraphPS, "/TutorialShaders/Private/PixelShader.usf", "MainPixelShaderScreenPass", SF_Pixel);
 
-void FPixelShaderRenderGraph::DrawToRenderTarget_RenderGraph(FRDGBuilder& GraphBuilder, const FShaderUsageExampleParameters& DrawParameters, FRDGTextureRef ComputeShaderOutput)
+void FPixelShaderRenderGraph::DrawToRenderTarget_RenderGraph(FRDGBuilder& GraphBuilder, const FShaderUsageExampleParameters& DrawParameters, FRDGTextureRef ComputeShaderOutput, TRefCountPtr<IPooledRenderTarget> RenderTarget)
 {
 	auto ShaderMap = GetGlobalShaderMap(GMaxRHIFeatureLevel);
 	TShaderMapRef<FRenderGraphPS> PixelShader(ShaderMap);
@@ -42,17 +43,25 @@ void FPixelShaderRenderGraph::DrawToRenderTarget_RenderGraph(FRDGBuilder& GraphB
 	PassParameters->TextureSize = FVector2D(DrawParameters.GetRenderTargetSize().X, DrawParameters.GetRenderTargetSize().Y);
 	PassParameters->BlendFactor = DrawParameters.ComputeShaderBlend;
 
-	FRDGTextureDesc Desc = FRDGTextureDesc::Create2DDesc(
-		DrawParameters.GetRenderTargetSize(),
-		PF_FloatRGBA,
-		FClearValueBinding(FLinearColor::Red),
-		TexCreate_None,
-		TexCreate_RenderTargetable | TexCreate_UAV | TexCreate_ShaderResource,
-		false);
+	FRDGTextureRef RDGRenderTarget;
+	if (!RenderTarget)
+	{
+		FRDGTextureDesc Desc = FRDGTextureDesc::Create2DDesc(
+			DrawParameters.GetRenderTargetSize(),
+			PF_FloatRGBA,
+			FClearValueBinding(FLinearColor::Red),
+			TexCreate_None,
+			TexCreate_RenderTargetable | TexCreate_UAV | TexCreate_ShaderResource,
+			false);
 
-	FRDGTextureRef RenderTarget = GraphBuilder.CreateTexture(Desc, TEXT("PSOutput"));
+		RDGRenderTarget = GraphBuilder.CreateTexture(Desc, TEXT("PSOutput"));
+	}
+	else
+	{
+		RDGRenderTarget = GraphBuilder.RegisterExternalTexture(RenderTarget, TEXT("PSOutput"));		
+	}
 
-	PassParameters->RenderTargets[0] = FRenderTargetBinding(RenderTarget, ERenderTargetLoadAction::EClear);
+	PassParameters->RenderTargets[0] = FRenderTargetBinding(RDGRenderTarget, ERenderTargetLoadAction::EClear);
 
 	FPixelShaderUtils::AddFullscreenPass(
 		GraphBuilder,

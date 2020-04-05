@@ -7,8 +7,8 @@
 #include "ComputeShaderExample.h"
 #include "PixelShaderExample.h"
 
-#include "ComputeShaderRenderGraph.h"
-#include "PixelShaderRenderGraph.h"
+#include "RenderGraph/ComputeShaderRenderGraph.h"
+#include "RenderGraph/PixelShaderRenderGraph.h"
 
 #include "Misc/Paths.h"
 #include "Misc/FileHelper.h"
@@ -30,7 +30,7 @@ DECLARE_GPU_STAT_NAMED(ShaderPlugin_Compute, TEXT("ShaderPlugin: Render Compute 
 DECLARE_GPU_STAT_NAMED(ShaderPlugin_Pixel, TEXT("ShaderPlugin: Render Pixel Shader"));
 
 
-static int32 GUseRenderGraph = 0;
+static int32 GUseRenderGraph = 1;
 static FAutoConsoleVariableRef CVarUseRenderGraph(
 	TEXT("Demo.UseRenderGraph"),
 	GUseRenderGraph,
@@ -125,6 +125,22 @@ void FShaderDeclarationDemoModule::Draw_RenderThread(const FShaderUsageExamplePa
 
 	if (GUseRenderGraph)
 	{
+		if (!PixelShaderOutput)
+		{
+			FSceneRenderTargetItem Item;
+			Item.TargetableTexture = DrawParameters.RenderTarget->GetRenderTargetResource()->GetRenderTargetTexture();
+			Item.ShaderResourceTexture = DrawParameters.RenderTarget->GetRenderTargetResource()->GetRenderTargetTexture();
+
+			FPooledRenderTargetDesc Desc;
+
+			Desc.Extent = DrawParameters.GetRenderTargetSize();
+			Desc.Format = GetPixelFormatFromRenderTargetFormat(DrawParameters.RenderTarget->RenderTargetFormat);
+			Desc.NumMips = 1;
+			Desc.TargetableFlags |= TexCreate_RenderTargetable | TexCreate_ShaderResource;
+
+			GRenderTargetPool.CreateUntrackedElement(Desc, PixelShaderOutput, Item);
+		}
+
 		FRDGBuilder GraphBuilder(RHICmdList);
 
 		FRDGTextureDesc Desc = FRDGTextureDesc::Create2DDesc(
@@ -136,8 +152,10 @@ void FShaderDeclarationDemoModule::Draw_RenderThread(const FShaderUsageExamplePa
 			false);
 
 		FRDGTextureRef CSOutput = GraphBuilder.CreateTexture(Desc, TEXT("CSOutput"));
+		
 		FComputeShaderRenderGraph::RunComputeShader_RenderGraph(GraphBuilder, DrawParameters, CSOutput);
-		FPixelShaderRenderGraph::DrawToRenderTarget_RenderGraph(GraphBuilder, DrawParameters, CSOutput);
+		FPixelShaderRenderGraph::DrawToRenderTarget_RenderGraph(GraphBuilder, DrawParameters, CSOutput, PixelShaderOutput);
+		
 		GraphBuilder.Execute();		
 	}	
 	else
