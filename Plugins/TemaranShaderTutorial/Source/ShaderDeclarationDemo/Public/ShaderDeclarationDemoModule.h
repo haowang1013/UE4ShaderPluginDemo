@@ -15,11 +15,12 @@
 // This struct contains all the data we need to pass from the game thread to draw our effect.
 struct FShaderUsageExampleParameters
 {
-	UTextureRenderTarget2D* RenderTarget;
-	FColor StartColor;
-	FColor EndColor;
-	float SimulationState;
-	float ComputeShaderBlend;
+	UTextureRenderTarget2D* RenderTarget = nullptr;
+	UTexture2D* InputTexture = nullptr;
+	FColor StartColor = FColor::White;
+	FColor EndColor = FColor::White;
+	float SimulationState = 1.f;
+	float ComputeShaderBlend = 0.f;
 	
 	FIntPoint GetRenderTargetSize() const
 	{

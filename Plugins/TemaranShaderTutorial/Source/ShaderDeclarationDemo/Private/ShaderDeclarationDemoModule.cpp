@@ -10,6 +10,9 @@
 #include "RenderGraph/ComputeShaderRenderGraph.h"
 #include "RenderGraph/PixelShaderRenderGraph.h"
 
+#include "RenderGraph/V2/ComputeShaderRenderGraphV2.h"
+#include "RenderGraph/V2/PixelShaderRenderGraphV2.h"
+
 #include "Misc/Paths.h"
 #include "Misc/FileHelper.h"
 #include "RHI.h"
@@ -123,7 +126,19 @@ void FShaderDeclarationDemoModule::Draw_RenderThread(const FShaderUsageExamplePa
 	QUICK_SCOPE_CYCLE_COUNTER(STAT_ShaderPlugin_Render); // Used to gather CPU profiling data for the UE4 session frontend
 	SCOPED_DRAW_EVENT(RHICmdList, ShaderPlugin_Render); // Used to profile GPU activity and add metadata to be consumed by for example RenderDoc
 
-	if (GUseRenderGraph)
+	if (GUseRenderGraph == 0)
+	{
+		if (!ComputeShaderOutput.IsValid())
+		{
+			FPooledRenderTargetDesc ComputeShaderOutputDesc(FPooledRenderTargetDesc::Create2DDesc(DrawParameters.GetRenderTargetSize(), PF_R32_UINT, FClearValueBinding::None, TexCreate_None, TexCreate_ShaderResource | TexCreate_UAV, false));
+			ComputeShaderOutputDesc.DebugName = TEXT("ShaderPlugin_ComputeShaderOutput");
+			GRenderTargetPool.FindFreeElement(RHICmdList, ComputeShaderOutputDesc, ComputeShaderOutput, TEXT("ShaderPlugin_ComputeShaderOutput"));
+		}
+
+		FComputeShaderExample::RunComputeShader_RenderThread(RHICmdList, DrawParameters, ComputeShaderOutput->GetRenderTargetItem().UAV);
+		FPixelShaderExample::DrawToRenderTarget_RenderThread(RHICmdList, DrawParameters, ComputeShaderOutput->GetRenderTargetItem().TargetableTexture);
+	}	
+	else
 	{
 		if (!PixelShaderOutput)
 		{
@@ -142,32 +157,37 @@ void FShaderDeclarationDemoModule::Draw_RenderThread(const FShaderUsageExamplePa
 		}
 
 		FRDGBuilder GraphBuilder(RHICmdList);
-
-		FRDGTextureDesc Desc = FRDGTextureDesc::Create2DDesc(
-			DrawParameters.GetRenderTargetSize(),
-			PF_R32_UINT,
-			FClearValueBinding::None,
-			TexCreate_None,
-			TexCreate_ShaderResource | TexCreate_UAV,
-			false);
-
-		FRDGTextureRef CSOutput = GraphBuilder.CreateTexture(Desc, TEXT("CSOutput"));
-		
-		FComputeShaderRenderGraph::RunComputeShader_RenderGraph(GraphBuilder, DrawParameters, CSOutput);
-		FPixelShaderRenderGraph::DrawToRenderTarget_RenderGraph(GraphBuilder, DrawParameters, CSOutput, PixelShaderOutput);
-		
-		GraphBuilder.Execute();		
-	}	
-	else
-	{
-		if (!ComputeShaderOutput.IsValid())
+		if (GUseRenderGraph == 1)
 		{
-			FPooledRenderTargetDesc ComputeShaderOutputDesc(FPooledRenderTargetDesc::Create2DDesc(DrawParameters.GetRenderTargetSize(), PF_R32_UINT, FClearValueBinding::None, TexCreate_None, TexCreate_ShaderResource | TexCreate_UAV, false));
-			ComputeShaderOutputDesc.DebugName = TEXT("ShaderPlugin_ComputeShaderOutput");
-			GRenderTargetPool.FindFreeElement(RHICmdList, ComputeShaderOutputDesc, ComputeShaderOutput, TEXT("ShaderPlugin_ComputeShaderOutput"));
+			FRDGTextureDesc Desc = FRDGTextureDesc::Create2DDesc(
+				DrawParameters.GetRenderTargetSize(),
+				PF_R32_UINT,
+				FClearValueBinding::None,
+				TexCreate_None,
+				TexCreate_ShaderResource | TexCreate_UAV,
+				false);
+
+			FRDGTextureRef CSOutput = GraphBuilder.CreateTexture(Desc, TEXT("CSOutput"));
+
+			FComputeShaderRenderGraph::RunComputeShader_RenderGraph(GraphBuilder, DrawParameters, CSOutput);
+			FPixelShaderRenderGraph::DrawToRenderTarget_RenderGraph(GraphBuilder, DrawParameters, CSOutput, PixelShaderOutput);
+		}
+		else if (GUseRenderGraph == 2)
+		{
+			FRDGTextureDesc Desc = FRDGTextureDesc::Create2DDesc(
+				DrawParameters.GetRenderTargetSize(),
+				PF_FloatRGBA,
+				FClearValueBinding::None,
+				TexCreate_None,
+				TexCreate_ShaderResource | TexCreate_UAV,
+				false);
+
+			FRDGTextureRef CSOutput = GraphBuilder.CreateTexture(Desc, TEXT("CSOutput"));
+
+			FComputeShaderRenderGraphV2::RunComputeShader_RenderGraph(GraphBuilder, DrawParameters, CSOutput);
+			FPixelShaderRenderGraphV2::DrawToRenderTarget_RenderGraph(GraphBuilder, DrawParameters, CSOutput, PixelShaderOutput);
 		}
 
-		FComputeShaderExample::RunComputeShader_RenderThread(RHICmdList, DrawParameters, ComputeShaderOutput->GetRenderTargetItem().UAV);
-		FPixelShaderExample::DrawToRenderTarget_RenderThread(RHICmdList, DrawParameters, ComputeShaderOutput->GetRenderTargetItem().TargetableTexture);
-	}	
+		GraphBuilder.Execute();
+	}
 }

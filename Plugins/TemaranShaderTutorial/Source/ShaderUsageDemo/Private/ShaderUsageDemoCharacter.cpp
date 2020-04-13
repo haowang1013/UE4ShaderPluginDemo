@@ -99,6 +99,7 @@ void AShaderUsageDemoCharacter::Tick(float DeltaSeconds)
 		DrawParameters.ComputeShaderBlend = ComputeShaderBlend;
 		DrawParameters.StartColor = StartColor;
 		DrawParameters.EndColor = FColor(EndColorBuildup * 255, 0, 0, 255);
+		DrawParameters.InputTexture = InputTexture;
 	}
 
 	// If doing this for realsies, you should avoid doing this every frame unless you have to of course.

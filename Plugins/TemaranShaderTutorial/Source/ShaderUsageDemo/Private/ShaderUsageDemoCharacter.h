@@ -60,6 +60,9 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = ShaderDemo)
 	class UTextureRenderTarget2D* RenderTarget;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = ShaderDemo)
+	class UTexture2D* InputTexture;
+
 public:
 	AShaderUsageDemoCharacter();
 	virtual void BeginPlay() override;

@@ -1,0 +1,22 @@
+// Base shader origin:
+// https://www.shadertoy.com/view/MdXSzS
+// The Big Bang - just a small explosion somewhere in a massive Galaxy of Universes.
+// Outside of this there's a massive galaxy of 'Galaxy of Universes'... etc etc. :D
+//
+// HLSL translation and parameterization by Temaran
+
+RWTexture2D<float4> OutputTexture;
+float2 TextureSize;
+
+Texture2D InputTexture;
+float2 InputTextureSize;
+
+[numthreads(THREADGROUPSIZE_X, THREADGROUPSIZE_Y, THREADGROUPSIZE_Z)]
+void MainComputeShader(uint3 ThreadId : SV_DispatchThreadID)
+{
+	// Set up some variables we are going to need
+	float2 iResolution = float2(TextureSize.x, TextureSize.y);
+	float2 uv = (ThreadId.xy / iResolution.xy);	
+	float4 InputColor = InputTexture.Load(int3(uv * InputTextureSize, 0));
+	OutputTexture[ThreadId.xy] = float4(uv, 0, 1) * InputColor;
+}
